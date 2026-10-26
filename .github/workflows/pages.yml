@@ -1,0 +1,38 @@
+# Publishes site/ to GitHub Pages on every push to main. Nothing secret is needed: the Firebase web config in site/config.js is public,
+# and the rules (firebase/firestore.rules) are what protects the data. The first step fails the run if a private key ever lands here.
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Refuse private keys and service-account files
+        run: |
+          if grep -rIlE 'private_key|BEGIN [A-Z ]*PRIVATE KEY|"type" *: *"service_account"|client_email' --exclude-dir=.git --exclude-dir=.github . ; then
+            echo "A private key or a service-account file is in this repo. Remove it from the history and make a new key in Google Cloud." >&2
+            exit 1
+          fi
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4

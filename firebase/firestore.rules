@@ -1,0 +1,181 @@
+rules_version = '2';
+
+// The guest chat's own Firebase project (G), never the private channel's. Model and limits: packages/phone-protocol/src/guests.ts;
+// design: agent-out/notifications-and-guest-chat-design.md sections 4.3, 4.4, 4.10 and 5.7; tests: plugin/test/guest-rules.test.ts
+// (the Firestore emulator). Everything that keeps guests apart and in bounds is here, server-side: the page only makes it pleasant.
+//
+//   allow/{email}                 the allowlist: lower-cased emails, written by the owner only
+//   threads/{uid}                 one per guest, keyed by their Firebase uid
+//   threads/{uid}/messages/{id}   "g3" is the guest's 3rd message, "o2" the owner's 2nd; never edited
+//
+// The owner is a custom-token user (uid "owner", claim owner: true) the PC mints with G's service-account key. A guest is a Google
+// account with a verified email that is on the allowlist. Anyone else gets nothing but the answer "you are not on the list".
+// Numbers (keep them equal to guests.ts, a test compares): text 2000, preview 140, name 40, unseen 50, 2 s between guest writes.
+
+service cloud.firestore {
+  match /databases/{db}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner() {
+      return signedIn() && request.auth.uid == 'owner' && request.auth.token.get('owner', false) == true;
+    }
+
+    // A Google account with a verified email (on the list or not).
+    function isGoogle() {
+      return signedIn()
+        && request.auth.token.firebase.sign_in_provider == 'google.com'
+        && request.auth.token.email_verified == true
+        && request.auth.token.email is string;
+    }
+
+    function emailOf() {
+      return request.auth.token.email.lower();
+    }
+
+    function isGuest() {
+      return isGoogle() && exists(/databases/$(db)/documents/allow/$(emailOf()));
+    }
+
+    // The guest whose thread this is.
+    function isSelf(uid) {
+      return isGuest() && request.auth.uid == uid;
+    }
+
+    function threadPath(uid) {
+      return /databases/$(db)/documents/threads/$(uid);
+    }
+
+    function messagePath(uid, id) {
+      return /databases/$(db)/documents/threads/$(uid)/messages/$(id);
+    }
+
+    function isCount(v) {
+      return v is int && v >= 0;
+    }
+
+    function okName(v) {
+      return v is string && v.size() <= 40;
+    }
+
+    function okPreview(v) {
+      return v is string && v.size() <= 140;
+    }
+
+    // ---- the allowlist ----
+
+    match /allow/{email} {
+      // A signed-in person may ask whether they are on the list (their own entry only), so the page can say so.
+      allow get: if isOwner() || (isGoogle() && emailOf() == email);
+      allow list, delete: if isOwner();
+      allow create, update: if isOwner()
+        && email == email.lower()
+        && email.matches('^[^@/\\s]{1,64}@[^@/\\s]{3,189}$')
+        && request.resource.data.keys().hasOnly(['addedAt', 'note'])
+        && request.resource.data.addedAt is timestamp
+        && (!('note' in request.resource.data) || (request.resource.data.note is string && request.resource.data.note.size() <= 100));
+    }
+
+    // ---- threads ----
+
+    match /threads/{uid} {
+      allow get: if isOwner() || isSelf(uid);
+      allow list: if isOwner();
+      allow create: if isSelf(uid) && newThread();
+      allow update: if (isOwner() && ownerUpdate(uid)) || (isSelf(uid) && guestUpdate(uid));
+      allow delete: if isOwner();
+
+      // Everything starts at zero, at the server's time, with the guest's own verified email.
+      function newThread() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['email', 'name', 'createdAt', 'lastAt', 'lastFrom', 'lastText', 'guestSeq', 'ownerSeq', 'ownerSeenSeq',
+                                 'guestSeenSeq', 'guestAt', 'blocked', 'webPush', 'pushedOwnerSeq'])
+          && d.keys().hasAll(['email', 'name', 'createdAt', 'lastAt', 'lastFrom', 'lastText', 'guestSeq', 'ownerSeq', 'ownerSeenSeq',
+                              'guestSeenSeq', 'guestAt', 'blocked', 'webPush', 'pushedOwnerSeq'])
+          && d.email == emailOf()
+          && okName(d.name)
+          && d.createdAt == request.time && d.lastAt == request.time && d.guestAt == request.time
+          && d.lastFrom == '' && d.lastText == ''
+          && d.guestSeq == 0 && d.ownerSeq == 0 && d.ownerSeenSeq == 0 && d.guestSeenSeq == 0 && d.pushedOwnerSeq == 0
+          && d.blocked == false && d.webPush == null;
+      }
+
+      // The guest's push registration ("Notify me"), or none.
+      function okWebPush(v) {
+        return v == null
+          || (v is map && v.keys().hasOnly(['token', 'updatedAt']) && v.token is string && v.token.size() >= 20
+              && v.token.size() <= 4096 && v.updatedAt == request.time);
+      }
+
+      // A guest may send (guestSeq + 1 with its message in the same batch), mark the owner's messages seen, change their name and
+      // their push registration. At most one write per 2 s, none once blocked, none past 50 messages the owner has not seen.
+      function guestUpdate(uid) {
+        let d = request.resource.data;
+        let o = resource.data;
+        let changed = d.diff(o).affectedKeys();
+        let sends = d.guestSeq != o.guestSeq;
+        return o.blocked != true
+          && changed.hasOnly(['guestSeq', 'lastAt', 'lastFrom', 'lastText', 'guestSeenSeq', 'webPush', 'name', 'guestAt'])
+          && d.guestAt == request.time
+          && request.time > o.guestAt + duration.value(2, 's')
+          && okName(d.name)
+          && isCount(d.guestSeenSeq) && d.guestSeenSeq <= o.ownerSeq
+          && (!changed.hasAny(['webPush']) || okWebPush(d.webPush))
+          && ((!sends && !changed.hasAny(['lastAt', 'lastFrom', 'lastText']))
+              || (sends
+                  && d.guestSeq == o.guestSeq + 1
+                  && d.guestSeq - o.ownerSeenSeq <= 50
+                  && d.lastAt == request.time && d.lastFrom == 'guest' && okPreview(d.lastText)
+                  && existsAfter(messagePath(uid, 'g' + string(d.guestSeq)))));
+      }
+
+      // The owner may answer (ownerSeq + 1 with its message), mark the guest's messages seen, block or unblock, record the replies a
+      // web push announced (the PC), and drop a push registration that no longer works (the PC). Never the guest's own fields.
+      function ownerUpdate(uid) {
+        let d = request.resource.data;
+        let o = resource.data;
+        let changed = d.diff(o).affectedKeys();
+        let sends = d.ownerSeq != o.ownerSeq;
+        return changed.hasOnly(['ownerSeq', 'ownerSeenSeq', 'blocked', 'pushedOwnerSeq', 'lastAt', 'lastFrom', 'lastText', 'webPush'])
+          && isCount(d.ownerSeenSeq) && d.ownerSeenSeq <= o.guestSeq
+          && d.blocked is bool
+          && isCount(d.pushedOwnerSeq) && d.pushedOwnerSeq <= d.ownerSeq
+          && (!changed.hasAny(['webPush']) || d.webPush == null)
+          && ((!sends && !changed.hasAny(['lastAt', 'lastFrom', 'lastText']))
+              || (sends
+                  && d.ownerSeq == o.ownerSeq + 1
+                  && d.lastAt == request.time && d.lastFrom == 'owner' && okPreview(d.lastText)
+                  && existsAfter(messagePath(uid, 'o' + string(d.ownerSeq)))));
+      }
+
+      // ---- messages ----
+
+      match /messages/{id} {
+        allow get, list: if isOwner() || isSelf(uid);
+        allow create: if (isSelf(uid) && newMessage(uid, id, 'guest', 'g')) || (isOwner() && newMessage(uid, id, 'owner', 'o'));
+        allow delete: if isOwner();
+        // No update: nobody edits a message once sent.
+
+        // The message goes with its thread's counter in one batch: its seq is the counter after the write, one more than before, and
+        // its id says so. A blocked thread takes no more messages from the guest.
+        function newMessage(uid, id, from, prefix) {
+          let m = request.resource.data;
+          let before = get(threadPath(uid)).data;
+          let after = getAfter(threadPath(uid)).data;
+          let counter = from == 'guest' ? 'guestSeq' : 'ownerSeq';
+          return m.keys().hasOnly(['from', 'text', 'ts', 'seq']) && m.keys().hasAll(['from', 'text', 'ts', 'seq'])
+            && m.from == from
+            && m.text is string && m.text.size() > 0 && m.text.size() <= 2000
+            && m.ts == request.time
+            && m.seq is int
+            && (from == 'owner' || before.blocked != true)
+            && after[counter] == before[counter] + 1
+            && m.seq == after[counter]
+            && id == prefix + string(m.seq);
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="robots" content="noindex" />
+    <meta name="theme-color" content="#16181d" />
+    <title>Chat</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <script src="config.js"></script>
+    <script type="module" src="app.js"></script>
+  </head>
+  <body>
+    <header>
+      <h1 id="title">Chat</h1>
+      <span id="who" class="who"></span>
+      <button id="signout" type="button" hidden>Sign out</button>
+    </header>
+    <main>
+      <section id="status" class="status">Loading…</section>
+      <section id="signin" hidden>
+        <p>Sign in with the Google account the owner added to the list.</p>
+        <button id="google" type="button" class="primary">Sign in with Google</button>
+        <p id="signin-error" class="error" role="alert"></p>
+      </section>
+      <section id="chat" hidden>
+        <p class="note">Messages here are not end-to-end encrypted: the owner and Google, which stores them, can read them.</p>
+        <ol id="messages" aria-live="polite"></ol>
+        <p id="empty" class="hint" hidden>No messages yet. Say hello.</p>
+        <form id="compose" autocomplete="off">
+          <textarea id="text" rows="2" maxlength="2000" placeholder="Write a message (Enter sends, Shift+Enter for a new line)" aria-label="Message"></textarea>
+          <button id="send" type="submit" class="primary">Send</button>
+        </form>
+        <div class="row">
+          <span id="count" class="hint"></span>
+          <span id="send-error" class="error" role="alert"></span>
+          <button id="notify" type="button" hidden>Notify me of replies</button>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

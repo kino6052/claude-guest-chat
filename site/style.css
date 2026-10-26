@@ -1,0 +1,139 @@
+:root {
+  color-scheme: light dark;
+  --bg: #f6f7f9;
+  --fg: #1b1d22;
+  --muted: #6b7280;
+  --mine: #2563eb;
+  --mine-fg: #fff;
+  --theirs: #e5e7eb;
+  --line: #d1d5db;
+  --error: #b91c1c;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16181d;
+    --fg: #e5e7eb;
+    --muted: #9ca3af;
+    --mine: #2563eb;
+    --theirs: #2a2e37;
+    --line: #374151;
+    --error: #f87171;
+  }
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--line);
+}
+h1 {
+  font-size: 1.1rem;
+  margin: 0;
+  flex: 1;
+}
+.who {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+main {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 1rem;
+}
+button {
+  font: inherit;
+  padding: 0.45rem 0.9rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+button.primary {
+  background: var(--mine);
+  border-color: var(--mine);
+  color: var(--mine-fg);
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.status,
+.hint,
+.note {
+  color: var(--muted);
+}
+.note {
+  font-size: 0.85rem;
+}
+.error {
+  color: var(--error);
+}
+#messages {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+#messages li {
+  max-width: 85%;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.9rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+#messages li.mine {
+  align-self: flex-end;
+  background: var(--mine);
+  color: var(--mine-fg);
+}
+#messages li.theirs {
+  align-self: flex-start;
+  background: var(--theirs);
+}
+#messages time,
+#messages .seen {
+  display: block;
+  font-size: 0.75rem;
+  opacity: 0.75;
+  margin-top: 0.15rem;
+}
+form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-end;
+}
+textarea {
+  flex: 1;
+  font: inherit;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.6rem;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: inherit;
+  resize: vertical;
+  min-height: 2.6rem;
+}
+.row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 0.4rem;
+  font-size: 0.85rem;
+}
+.row .error {
+  flex: 1;
+}
