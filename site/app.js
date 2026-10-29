@@ -8,12 +8,14 @@ import {
   friendlyError,
   isConfigured,
   newThreadFields,
+  notifyError,
   parseMessage,
   planSeen,
   readThread,
   sortMessages,
   timeLabel,
   waitBeforeWrite,
+  waitForActive,
 } from "./logic.js";
 
 /** The SDK version: the one the repo builds with (its four modules are on the CDN, checked 2026-10-26). */
@@ -191,18 +193,23 @@ async function start() {
 
     // ---- "Notify me": a web push when the owner answers (sent by the owner's PC; sw.js shows it) ----
 
-    const canNotify = () => !!config.vapidKey && "serviceWorker" in navigator && "Notification" in self && "PushManager" in self;
+    const browserCanPush = () => "serviceWorker" in navigator && "Notification" in self && "PushManager" in self;
+    const canNotify = () => !!config.vapidKey && browserCanPush();
     const notifying = () => !!thread?.webPush && canNotify() && Notification.permission === "granted";
 
     function renderNotify() {
       const b = $("notify");
       b.hidden = !canNotify() || !thread || thread.blocked;
       b.textContent = notifying() ? "Turn off notifications" : "Notify me of replies";
+      // A browser that can't show notifications (an in-app browser, an iPhone's Safari outside the Home Screen) used to get no button and
+      // no word why; now it is told.
+      $("notify-hint").hidden = !config.vapidKey || browserCanPush() || !thread || thread.blocked;
     }
 
     async function toggleNotify() {
       const b = $("notify");
       b.disabled = true;
+      $("send-error").textContent = "";
       try {
         if (notifying()) {
           const m = await import(`${SDK}/firebase-messaging.js`);
@@ -221,11 +228,14 @@ async function start() {
           return;
         }
         const reg = await navigator.serviceWorker.register("sw.js", { scope: "./" });
+        // The browser subscribes to push only through a worker that is active, and the SDK does not wait for the one it is handed: on a
+        // first visit the subscription failed right after the registration, and the guest got an error and no notifications.
+        await waitForActive(reg);
         const token = await m.getToken(m.getMessaging(app), { vapidKey: config.vapidKey, serviceWorkerRegistration: reg });
         if (!token) throw new Error("no token");
         await guestWrite(() => fs.updateDoc(ref, { webPush: { token, updatedAt: stamp() }, guestAt: stamp() }));
       } catch (e) {
-        $("send-error").textContent = friendlyError(e);
+        $("send-error").textContent = notifyError(e);
       } finally {
         b.disabled = false;
         renderNotify();

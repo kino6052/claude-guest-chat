@@ -120,6 +120,48 @@ export function timeLabel(at, now) {
   return d.toLocaleDateString([], { day: "numeric", month: "short", ...(d.getFullYear() !== n.getFullYear() ? { year: "numeric" } : {}) });
 }
 
+/**
+ * Resolves once the service worker registration `reg` has an active worker. The browser refuses to subscribe to push before that
+ * ("Subscription failed - no active Service Worker"), and the Firebase SDK waits only for the worker it registers itself, not for one it
+ * is handed, so the first "Notify me" used to fail right after the registration was made. Rejects if the worker is thrown away or does
+ * not come up in `ms`.
+ */
+export function waitForActive(reg, ms = 10_000) {
+  return new Promise((resolve, reject) => {
+    if (reg.active) return resolve();
+    const worker = reg.installing || reg.waiting;
+    if (!worker) return reject(Object.assign(new Error("no worker"), { code: "sw/none" }));
+    let timer;
+    const finish = (err) => {
+      clearTimeout(timer);
+      worker.removeEventListener("statechange", check);
+      return err ? reject(err) : resolve();
+    };
+    function check() {
+      if (worker.state === "activating" || worker.state === "activated") finish();
+      else if (worker.state === "redundant") finish(Object.assign(new Error("worker discarded"), { code: "sw/redundant" }));
+    }
+    timer = setTimeout(() => finish(Object.assign(new Error("worker too slow"), { code: "sw/timeout" })), ms);
+    worker.addEventListener("statechange", check);
+    check();
+  });
+}
+
+/** Words for a failure to turn "Notify me" on or off. The error's code is added in brackets (it says nothing private) so a failure can be reported. */
+export function notifyError(e) {
+  const raw = (e && (e.code || e.name)) || "";
+  const code = /^[\w/.-]{1,60}$/.test(String(raw)) ? String(raw) : "";
+  const tail = code ? ` (${code})` : "";
+  if (code === "messaging/permission-blocked") return "Notifications are blocked for this page in your browser's settings.";
+  if (code === "messaging/unsupported-browser") return "This browser can't get notifications from this page (on an iPhone: add it to the Home Screen first).";
+  if (code === "auth/network-request-failed" || code === "unavailable") return friendlyError(e);
+  if (code === "permission-denied") return friendlyError(e);
+  if (code === "messaging/token-subscribe-failed" || code === "messaging/token-unsubscribe-failed") {
+    return `The notification service did not accept this browser${tail}. Wait a minute and try again.`;
+  }
+  return `Could not turn notifications on${tail}. Reload the page and try again.`;
+}
+
 /** Words for an error. Never the error's own message: it is shown as text, but says nothing a guest can act on. */
 export function friendlyError(e) {
   const code = (e && e.code) || "";
