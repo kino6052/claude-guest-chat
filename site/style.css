@@ -1,139 +1,800 @@
+/* The guest page's look is the owner's app's (packages/phone-app/index.html, "Design tokens"): neutral greys, one indigo-violet
+   accent and its gradient bubbles, hairline borders, soft shadows, a 4 px spacing scale, rounded surfaces, light and dark. The token
+   values are copied from there (plugin/test/guest-page.test.ts checks that every name both use has the same value). System fonts only,
+   no images but inline ones: the page fetches nothing but its own files and the Firebase SDK. */
 :root {
   color-scheme: light dark;
-  --bg: #f6f7f9;
-  --fg: #1b1d22;
-  --muted: #6b7280;
-  --mine: #2563eb;
-  --mine-fg: #fff;
-  --theirs: #e5e7eb;
-  --line: #d1d5db;
-  --error: #b91c1c;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-round: ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "Varela Round", "Nunito", var(--font);
+  --bg: #f6f6f8;
+  --surface: #ffffff;
+  --surface-2: #f0f0f3;
+  --surface-3: #e6e6eb;
+  --fg: #17171c;
+  --fg-2: #3c3c44;
+  --muted: #6b6b76;
+  --line: rgba(23, 23, 28, 0.09);
+  --line-strong: rgba(23, 23, 28, 0.16);
+  --accent: #5b5bf0;
+  --accent-fg: #ffffff;
+  --accent-soft: rgba(91, 91, 240, 0.11);
+  --accent-text: #4545d4;
+  --warning-soft: #fff3dc;
+  --warning-text: #8a4b00;
+  --danger-soft: rgba(229, 72, 77, 0.1);
+  --danger-text: #c42b30;
+  --bubble-mine: linear-gradient(135deg, #5b5bf0 0%, #7c3aed 100%);
+  --mark-a: #5b5bf0;
+  --mark-b: #9333ea;
+  --mark-c: #d946ef;
+  /* The chat's backdrop tile (96 px, seamless): sparse plus signs, rings and dots in the accent, at about 9% ink. */
+  --pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96' viewBox='0 0 96 96' fill='none' stroke='%235b5bf0' stroke-width='1.5' stroke-linecap='round' opacity='.1'%3E%3Cpath d='M16 14v8M12 18h8M66 58v8M62 62h8'/%3E%3Ccircle cx='70' cy='16' r='3'/%3E%3Ccircle cx='28' cy='64' r='3'/%3E%3Cpath d='M46 8h.01M88 38h.01M8 46h.01M52 84h.01M84 80h.01M44 40h.01' stroke-width='3'/%3E%3C/svg%3E");
+  --shadow-xs: 0 1px 2px rgba(16, 16, 28, 0.05);
+  --shadow-md: 0 1px 3px rgba(16, 16, 28, 0.06), 0 6px 18px rgba(16, 16, 28, 0.08);
+  --shadow-accent: 0 4px 14px rgba(91, 91, 240, 0.32);
+  --ring: 0 0 0 3px rgba(91, 91, 240, 0.28);
+  --r-xs: 6px;
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 28px;
+  --r-full: 999px;
+  --ease-out: cubic-bezier(0.22, 0.8, 0.24, 1);
+  --dur-1: 120ms;
+  --dur-2: 200ms;
+  --dur-3: 320ms;
+  --dur-4: 440ms;
+  /* The page's own: the column the chat keeps to on a wide screen. */
+  --col: max(14px, calc((100% - 760px) / 2));
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #16181d;
-    --fg: #e5e7eb;
-    --muted: #9ca3af;
-    --mine: #2563eb;
-    --theirs: #2a2e37;
-    --line: #374151;
-    --error: #f87171;
+    --bg: #0c0c10;
+    --surface: #17171d;
+    --surface-2: #1f1f26;
+    --surface-3: #2a2a33;
+    --fg: #ececf1;
+    --fg-2: #c8c8d0;
+    --muted: #9a9aa6;
+    --line: rgba(255, 255, 255, 0.075);
+    --line-strong: rgba(255, 255, 255, 0.14);
+    --accent-soft: rgba(124, 124, 255, 0.16);
+    --accent-text: #a9aaff;
+    --warning-soft: rgba(245, 165, 36, 0.13);
+    --warning-text: #f7bd5b;
+    --danger-soft: rgba(255, 99, 105, 0.14);
+    --danger-text: #ff8085;
+    --bubble-mine: linear-gradient(135deg, #5050e6 0%, #6d32d8 100%);
+    --mark-a: #8f8fff;
+    --mark-b: #b98cff;
+    --mark-c: #f08cf5;
+    --pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96' viewBox='0 0 96 96' fill='none' stroke='%23a9aaff' stroke-width='1.5' stroke-linecap='round' opacity='.1'%3E%3Cpath d='M16 14v8M12 18h8M66 58v8M62 62h8'/%3E%3Ccircle cx='70' cy='16' r='3'/%3E%3Ccircle cx='28' cy='64' r='3'/%3E%3Cpath d='M46 8h.01M88 38h.01M8 46h.01M52 84h.01M84 80h.01M44 40h.01' stroke-width='3'/%3E%3C/svg%3E");
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 1px 3px rgba(0, 0, 0, 0.35), 0 6px 18px rgba(0, 0, 0, 0.35);
+    --shadow-accent: 0 4px 16px rgba(80, 80, 230, 0.35);
+    --ring: 0 0 0 3px rgba(124, 124, 255, 0.35);
   }
 }
+
+/* ---- Base ---- */
 * {
   box-sizing: border-box;
 }
+[hidden] {
+  display: none !important;
+}
+html {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+html,
 body {
+  height: 100%;
   margin: 0;
+}
+body {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
   background: var(--bg);
   color: var(--fg);
-  font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font: 16px/1.45 var(--font);
+  -webkit-font-smoothing: antialiased;
 }
-header {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--line);
+::selection {
+  background: rgba(91, 91, 240, 0.25);
 }
-h1 {
-  font-size: 1.1rem;
-  margin: 0;
-  flex: 1;
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
-.who {
-  color: var(--muted);
-  font-size: 0.85rem;
+.sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
 }
-main {
-  max-width: 44rem;
-  margin: 0 auto;
-  padding: 1rem;
+.ic {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.ic.t {
+  width: 1.15em;
+  height: 1.15em;
 }
 button {
   font: inherit;
-  padding: 0.45rem 0.9rem;
-  border-radius: 0.5rem;
-  border: 1px solid var(--line);
-  background: transparent;
   color: inherit;
+  border: 0;
+  padding: 0;
+  background: none;
   cursor: pointer;
+  touch-action: manipulation;
+  transition: transform var(--dur-1) var(--ease-out), background-color var(--dur-2), color var(--dur-2), opacity var(--dur-2), box-shadow var(--dur-2);
 }
-button.primary {
-  background: var(--mine);
-  border-color: var(--mine);
-  color: var(--mine-fg);
+button:active:not(:disabled) {
+  transform: scale(0.97);
 }
 button:disabled {
   opacity: 0.5;
   cursor: default;
 }
-.status,
-.hint,
-.note {
+
+/* ---- The header: the orb (the app's mark), who you write to, and who you are ---- */
+header.top {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: calc(60px + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) var(--col) 0;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+.orb {
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+}
+.orb-core {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18), 0 2px 8px rgba(91, 91, 240, 0.28);
+}
+.orb-core::before {
+  content: "";
+  position: absolute;
+  inset: -30%;
+  background: conic-gradient(from 200deg, #5b5bf0, #8b5cf6, #d946ef, #f59e0b, #22d3ee, #5b5bf0);
+}
+.orb-core::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0) 46%), radial-gradient(circle at 70% 85%, rgba(20, 10, 60, 0.35), rgba(20, 10, 60, 0) 55%);
+}
+.orb.big {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 14px;
+}
+.orb.big .orb-core::before {
+  animation: spin 14s linear infinite;
+}
+.who {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.25;
+}
+.title {
+  font: 800 19px/1.2 var(--font-round);
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sub {
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sub:empty {
+  display: none;
+}
+.pill {
+  flex: none;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: var(--r-full);
+  background: var(--surface-2);
+  color: var(--fg-2);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* ---- The stage: the messages over a faint pattern, or a card (loading, sign in, not on the list) ---- */
+#stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  background: var(--pattern) 0 0 / 96px 96px;
+}
+.card {
+  width: min(100% - 32px, 400px);
+  margin: auto;
+  padding: 28px 22px 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  text-align: center;
+  overflow-wrap: anywhere;
+  animation: rise var(--dur-4) var(--ease-out) both;
+}
+.card.status {
+  color: var(--fg-2);
+  font-size: 15px;
+}
+.card p {
+  margin: 0 0 16px;
+  color: var(--fg-2);
+}
+.card-title {
+  margin: 0 0 6px;
+  font: 800 23px/1.2 var(--font-round);
+  letter-spacing: -0.03em;
+}
+.google {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 22px 0 6px;
+  border-radius: var(--r-full);
+  background: var(--bubble-mine);
+  color: #fff;
+  font-weight: 650;
+  box-shadow: var(--shadow-accent);
+}
+.google .g {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #fff;
+}
+.google svg {
+  width: 18px;
+  height: 18px;
+}
+.card .error {
+  margin: 12px 0 0;
+}
+.card .fine {
+  margin: 18px 0 0;
+  font-size: 12.5px;
   color: var(--muted);
 }
+.brand {
+  margin: 18px 0 0 !important;
+  font: 800 15px/1.15 var(--font-round);
+  letter-spacing: -0.04em;
+  color: var(--fg-2) !important;
+}
+/* "only" in the orb's colours over a hand-drawn underline, as the app's wordmark. */
+.brand .only {
+  position: relative;
+  padding: 0 0.06em;
+  background: linear-gradient(100deg, var(--mark-a), var(--mark-b) 55%, var(--mark-c));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+.brand .only::after {
+  content: "";
+  position: absolute;
+  left: 0.04em;
+  right: 0.02em;
+  bottom: -2px;
+  height: 2.5px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--mark-a), var(--mark-c));
+  transform: rotate(-1.6deg);
+}
+.brand::after {
+  content: "";
+  display: inline-block;
+  width: 0.26em;
+  height: 0.26em;
+  margin-left: 0.06em;
+  border-radius: 50%;
+  background: var(--mark-c);
+}
+
+/* ---- The thread ---- */
+#chat {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  padding: 14px var(--col) 16px;
+}
 .note {
-  font-size: 0.85rem;
+  align-self: center;
+  max-width: 34em;
+  margin: 0 0 14px;
+  padding: 6px 14px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.4;
+  text-align: center;
 }
-.error {
-  color: var(--error);
-}
+/* The messages sit at the foot of the stage, by the box to write in, as in any chat. */
 #messages {
   list-style: none;
-  margin: 0 0 1rem;
+  margin: auto 0 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 8px;
 }
-#messages li {
-  max-width: 85%;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.9rem;
+.msg {
+  position: relative;
+  align-self: flex-start;
+  max-width: 84%;
+  padding: 8px 14px 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  border-bottom-left-radius: var(--r-xs);
+  background: var(--surface);
+  color: var(--fg);
+  box-shadow: var(--shadow-xs);
+}
+.msg.mine {
+  align-self: flex-end;
+  border-color: transparent;
+  border-radius: var(--r-lg);
+  border-bottom-right-radius: var(--r-xs);
+  background: var(--bubble-mine);
+  color: #fff;
+  box-shadow: var(--shadow-accent);
+}
+/* A run of messages from one side within a few minutes sits closer together. */
+.msg.next {
+  margin-top: -5px;
+}
+.text {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-#messages li.mine {
-  align-self: flex-end;
-  background: var(--mine);
-  color: var(--mine-fg);
+.text a {
+  color: var(--accent-text);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
 }
-#messages li.theirs {
-  align-self: flex-start;
-  background: var(--theirs);
+.msg.mine .text a {
+  color: #fff;
 }
-#messages time,
-#messages .seen {
+/* The real host beside a link that does not show it plainly (or is written in other alphabets). */
+.host {
+  display: inline-block;
+  max-width: 100%;
+  margin-left: 5px;
+  padding: 0 8px;
+  border-radius: var(--r-full);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+  vertical-align: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.host.warn {
+  background: var(--warning-soft);
+  color: var(--warning-text);
+}
+.host .ic {
+  width: 13px;
+  height: 13px;
+  margin-right: 4px;
+  vertical-align: -2px;
+  stroke-width: 2.4;
+}
+.msg.mine .host {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+/* A message's pictures: one wide tile, two side by side, or one wide over two; each opens larger. They fill the bubble but a thin rim. */
+.msg.has-pics {
+  padding-top: 4px;
+}
+.pics {
+  display: grid;
+  gap: 2px;
+  width: min(264px, 62vw);
+  margin: 0 -10px 6px;
+  overflow: hidden;
+  border-radius: calc(var(--r-lg) - 4px) calc(var(--r-lg) - 4px) var(--r-xs) var(--r-xs);
+}
+.pics.n2,
+.pics.n3 {
+  grid-template-columns: 1fr 1fr;
+}
+.pic {
   display: block;
-  font-size: 0.75rem;
-  opacity: 0.75;
-  margin-top: 0.15rem;
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: var(--surface-2);
+  cursor: zoom-in;
 }
-form {
+.pics.n1 .pic {
+  aspect-ratio: 4 / 3;
+}
+.pics.n3 .pic:first-child {
+  grid-column: span 2;
+  aspect-ratio: 2 / 1;
+}
+.pic img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.pic:active:not(:disabled) {
+  transform: none;
+  opacity: 0.85;
+}
+.msg:not(.mine) .pic:focus-visible {
+  outline-offset: -3px;
+}
+.skipped {
+  font-size: 12.5px;
+  font-style: italic;
+  color: var(--muted);
+}
+.msg.mine .skipped {
+  color: rgba(255, 255, 255, 0.8);
+}
+.meta {
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.msg.mine .meta {
+  color: rgba(255, 255, 255, 0.78);
+}
+.empty {
+  margin: auto;
+  padding: 24px;
+  color: var(--muted);
+  text-align: center;
+}
+.empty + .empty,
+#messages:not(:empty) ~ .empty {
+  display: none;
+}
+/* A new message comes up into place. */
+.arrive {
+  animation: msg-in var(--dur-4) var(--ease-out) both;
+  transform-origin: 0 100%;
+}
+.msg.mine.arrive {
+  transform-origin: 100% 100%;
+}
+
+/* ---- Writing: Notify me, the count, words when something did not go, the box and Send ---- */
+#composer {
+  flex: none;
+  padding: 8px var(--col) calc(10px + env(safe-area-inset-bottom));
+  background: var(--bg);
+  border-top: 1px solid var(--line);
+}
+.tools {
   display: flex;
-  gap: 0.5rem;
-  align-items: flex-end;
-}
-textarea {
-  flex: 1;
-  font: inherit;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.6rem;
-  border: 1px solid var(--line);
-  background: transparent;
-  color: inherit;
-  resize: vertical;
-  min-height: 2.6rem;
-}
-.row {
-  display: flex;
-  gap: 0.75rem;
   align-items: center;
-  flex-wrap: wrap;
-  margin-top: 0.4rem;
-  font-size: 0.85rem;
+  gap: 8px;
 }
-.row .error {
+.tools > * {
+  margin-bottom: 8px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-full);
+  background: var(--surface);
+  color: var(--accent-text);
+  box-shadow: var(--shadow-xs);
+  font-size: 14px;
+  font-weight: 600;
+}
+.chip.on {
+  border-color: transparent;
+  background: var(--accent-soft);
+  box-shadow: none;
+}
+.count {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+.count:empty {
+  display: none;
+}
+.hint {
+  margin: 0 2px 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.error {
+  margin: 0 2px 8px;
+  color: var(--danger-text);
+  font-size: 13.5px;
+}
+.error:empty {
+  display: none;
+}
+#compose {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+.field {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-end;
+  min-height: 46px;
+  padding: 0 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 23px;
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+  transition: border-color var(--dur-2), box-shadow var(--dur-2);
+}
+.field:focus-within {
+  border-color: rgba(91, 91, 240, 0.55);
+  box-shadow: var(--ring);
+}
+#text {
+  flex: 1;
+  min-width: 0;
+  align-self: center;
+  max-height: 40vh;
+  padding: 11px 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.4;
+  resize: none;
+  overflow-y: auto;
+  field-sizing: content;
+}
+#text::placeholder {
+  color: var(--muted);
+}
+#text:disabled {
+  opacity: 0.6;
+}
+/* Send: the gradient is a layer of its own, so going quiet (nothing written yet) fades instead of jumping. */
+.send {
+  position: relative;
+  isolation: isolate;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: #fff;
+  box-shadow: var(--shadow-accent);
+  transition: transform var(--dur-3) var(--ease-out), color var(--dur-2), box-shadow var(--dur-2), opacity var(--dur-2);
+}
+.send::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--bubble-mine);
+  transition: opacity var(--dur-2);
+}
+.send .ic {
+  stroke-width: 2.4;
+}
+#compose:not(.has-pictures):has(#text:placeholder-shown) .send {
+  color: var(--muted);
+  box-shadow: none;
+  transform: scale(0.92);
+}
+#compose:not(.has-pictures):has(#text:placeholder-shown) .send::before {
+  opacity: 0;
+}
+/* Add pictures: a quiet round button left of the box, as the app's attach. */
+.attach {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  margin-right: -4px;
+  border-radius: 50%;
+  color: var(--muted);
+}
+.attach:active:not(:disabled) {
+  background: var(--surface-2);
+}
+/* The pictures that go with the next message, over the box; a pulse while one is being prepared. */
+.tray {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+.slot {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-xs);
+  animation: rise var(--dur-3) var(--ease-out) both;
+}
+.slot.busy {
+  background: linear-gradient(110deg, var(--surface-2) 30%, var(--surface-3) 50%, var(--surface-2) 70%) 0 0 / 300% 100%;
+  animation: shimmer 1.2s linear infinite;
+}
+.slot img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.unpick {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(12, 12, 16, 0.62);
+  color: #fff;
+}
+.unpick .ic {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2.6;
+}
+
+/* The viewer: one picture as large as it fits, over a dark veil (the app's). */
+.viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  background: rgba(6, 6, 9, 0.94);
+  animation: fade var(--dur-2) ease-out;
+  cursor: zoom-out;
+}
+.viewer img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  animation: zoom-in var(--dur-3) var(--ease-out);
+}
+.viewer-close {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  right: calc(12px + env(safe-area-inset-right));
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pill:hover,
+  .chip:hover {
+    filter: brightness(0.97);
+  }
+  .attach:hover:not(:disabled) {
+    background: var(--surface-2);
+    color: var(--accent-text);
+  }
+  .pic:hover img {
+    filter: brightness(1.06);
+  }
+  .send:hover:not(:disabled),
+  .google:hover {
+    filter: brightness(1.06);
+  }
+}
+
+@keyframes msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+@keyframes spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+@keyframes shimmer {
+  to {
+    background-position: -300% 0;
+  }
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes zoom-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
 }

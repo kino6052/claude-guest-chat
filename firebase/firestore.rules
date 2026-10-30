@@ -6,11 +6,12 @@ rules_version = '2';
 //
 //   allow/{email}                 the allowlist: lower-cased emails, written by the owner only
 //   threads/{uid}                 one per guest, keyed by their Firebase uid
-//   threads/{uid}/messages/{id}   "g3" is the guest's 3rd message, "o2" the owner's 2nd; never edited
+//   threads/{uid}/messages/{id}   "g3" is the guest's 3rd message, "o2" the owner's 2nd; never edited; text and up to 3 pictures
 //
 // The owner is a custom-token user (uid "owner", claim owner: true) the PC mints with G's service-account key. A guest is a Google
 // account with a verified email that is on the allowlist. Anyone else gets nothing but the answer "you are not on the list".
-// Numbers (keep them equal to guests.ts, a test compares): text 2000, preview 140, name 40, unseen 50, 2 s between guest writes.
+// Numbers (keep them equal to guests.ts and pictures.ts, a test compares): text 2000, preview 140, name 40, unseen 50, 2 s between
+// guest writes; pictures 3 per message, 16 to 225280 bytes each.
 
 service cloud.firestore {
   match /databases/{db}/documents {
@@ -62,6 +63,25 @@ service cloud.firestore {
 
     function okPreview(v) {
       return v is string && v.size() <= 140;
+    }
+
+    // A message's pictures (packages/phone-protocol/src/pictures.ts): 1 to 3 files stored as bytes in the message itself, each 16 bytes
+    // to 220 KiB, and each a JPEG, PNG or WebP by its first bytes (never SVG, HTML or anything a browser could run). The sender's page
+    // saves every picture again as JPEG through a canvas, which drops what the original carried (the place it was taken, say).
+    function okPictures(ps) {
+      return ps is list && ps.size() >= 1 && ps.size() <= 3
+        && okPicture(ps[0])
+        && (ps.size() < 2 || okPicture(ps[1]))
+        && (ps.size() < 3 || okPicture(ps[2]));
+    }
+
+    function okPicture(p) {
+      return p is bytes && p.size() >= 16 && p.size() <= 225280 && okMagic(p.toHexString()[0:24].lower());
+    }
+
+    // `h`: a file's first 12 bytes in hex. JPEG FF D8 FF; PNG 89 50 4E 47 0D 0A 1A 0A; WebP "RIFF", 4 bytes of length, "WEBP".
+    function okMagic(h) {
+      return h[0:6] == 'ffd8ff' || h[0:16] == '89504e470d0a1a0a' || (h[0:8] == '52494646' && h[16:24] == '57454250');
     }
 
     // ---- the allowlist ----
@@ -159,15 +179,18 @@ service cloud.firestore {
         // No update: nobody edits a message once sent.
 
         // The message goes with its thread's counter in one batch: its seq is the counter after the write, one more than before, and
-        // its id says so. A blocked thread takes no more messages from the guest.
+        // its id says so. A blocked thread takes no more messages from the guest. It has text, pictures, or both.
         function newMessage(uid, id, from, prefix) {
           let m = request.resource.data;
           let before = get(threadPath(uid)).data;
           let after = getAfter(threadPath(uid)).data;
           let counter = from == 'guest' ? 'guestSeq' : 'ownerSeq';
-          return m.keys().hasOnly(['from', 'text', 'ts', 'seq']) && m.keys().hasAll(['from', 'text', 'ts', 'seq'])
+          let pictures = 'pictures' in m;
+          return m.keys().hasOnly(['from', 'text', 'ts', 'seq', 'pictures']) && m.keys().hasAll(['from', 'text', 'ts', 'seq'])
             && m.from == from
-            && m.text is string && m.text.size() > 0 && m.text.size() <= 2000
+            && m.text is string && m.text.size() <= 2000
+            && (m.text.size() > 0 || pictures)
+            && (!pictures || okPictures(m.pictures))
             && m.ts == request.time
             && m.seq is int
             && (from == 'owner' || before.blocked != true)

@@ -1,12 +1,16 @@
 # Guest chat
 
 A small public page where people the owner allowed can write to them, signed in with Google. The owner reads and answers in their own
-app. Messages live in this page's own Firebase project; they are plain text (not end-to-end encrypted).
+app. Messages live in this page's own Firebase project; they are plain text with up to 3 pictures each (not end-to-end encrypted).
 
 - `site/`: the page. Plain HTML and JavaScript, no build step; the Firebase SDK comes from Google's CDN. `site/config.js` holds the
   project's public web config (every Firebase web page ships one; the rules protect the data).
-- `firebase/firestore.rules`: who may read and write what. Publish them with the Firebase console (Firestore -> Rules) or
-  `firebase deploy --only firestore:rules` from `firebase/`.
+- `firebase/firestore.rules`: who may read and write what. Publish them with the Firebase console (Firestore -> Rules: paste the
+  whole file, then Publish) or `firebase deploy --only firestore:rules` from `firebase/`. When a change needs both, publish the
+  rules before the page.
+- Pictures are part of the message (a list of bytes, no Storage). The page saves each one again as a JPEG of at most 1280 px and
+  220 KB before it is sent (so the place a photo was taken does not go with it); the rules let in only JPEG, PNG and WebP by
+  their first bytes, and the page draws only pictures that pass the same check, never SVG.
 - `.github/workflows/pages.yml`: publishes `site/` to GitHub Pages on every push to `main`.
 
 ## Hard rules for this repo (it is public)
